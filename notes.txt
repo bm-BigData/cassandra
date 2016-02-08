@@ -1,0 +1,223 @@
+http://tinyurl.com/jmkgcue
+
+Docker
+  download docker toolbox ::: https://docs.docker.com/v1.8/installation/mac/
+  Toolbox
+    it creases a vm - default (Unix command prompt)
+    will be able to run several docker containers
+  Kitematic
+    GUI
+
+Instructor:: John
+
+----------------- Apache Cassandra basics
+
+use docker to setup cassandra clister
+
+NoSQL ,
+No 3rd Normal Form,
+No Rows/Cols,
+Good for Read efficinecies
+Env Consistencies - Data Replica
+Replication
+  Availibility
+  DR
+Scalability
+Big Data - fall under this umberalla
+No Structure into it
+JSON - Data Format
+
+version 1-x ==== 2.x
+
+CQL: Cassandra Query Language (like SQL)
+
+Master/Slave ???
+
+*** Sharding
+  spreads the nodes throughout the cluster
+  *********** keyspace -
+    create tables inside the keyspace
+    its configuration stores how many replicas and data inside the table
+    ****** control replication
+    data with different replication requirements will be in different keyspaces
+    ***** like collections in mongodb
+
+  Pertitioning
+    Simple Pertitioning
+    Network Pertitioning - across data centers
+
+Logging :: very fast writes
+
+No Locking (problem for relational databases)
+  possible to have multiple versions but can be configured
+
+  **** optimistic locking (last one wins ... last write wins)
+
+  ***** gurantted row consistency
+    updating multiple columns, all those uodated as one unit so row consistency
+    everything is timestamped --- replication
+
+**** RowKey needs to be setup
+  Key ==> maps of key/values
+
+Transaction Isolation :: always be READ Committed data
+
+ETL processes :: because of great performance not just on READ but also on write
+
+----------------- Processing Franmework supports Cassandra
+  MAPReduce - old school
+  Apache Spark - 100 times faster to MapReduce ****
+  Apache Flink - FLink born is germany (performance much better)
+    should perform
+      True Stream Processing
+      Batch
+      MapReduce
+
+-----------------
+HBase ::: big google big table
+
+**** HBase is 3Years behind than cassandra
+
+concept of columnFamily
+  can put multiple columns isndie the columnFamily
+  just a way to specify storage for the columns that gets stored
+  space of key & values (in 2.x it is called keyspace)
+  example:
+    Info (Family)
+      Name
+      Address
+    Image (Family)
+      pic
+
+**** RowKey, Date, ColumnFamily (columns)
+**** cannot have nested columnFamily
+
+**** 2.x ****
+  **** all columnFamily moved to keyspace
+  **** keyspace rough analogy is database for relational
+  **** true table based schema
+  **** multi value type data tye of do dynamic
+  **** formalized CQL and for that we need some type of schema
+  **** can do joins (catesian, inner/outer)
+  **** best of bth the world (SQL + NoSQL)
+
+HBase
+  Master/Salve
+    Master - knows all slave, shards etc.
+    multiple slaves
+
+    have to do HA, management is a bit of pain
+Cassandra
+    Peer to Peer world (every nodes everyother node)
+    every node is Gossiping with other nodes what they have
+    Shard is defined by rowKeys
+    keyspace coallision **** very very rare
+    ***** Gossip is liek multi cast protocol
+    ***** eventual consistancy
+    ***** Cluster is synonymus as Ring
+    ***** Sharding helps scalability and based on business
+    ***** no body using versioning so default is 1
+    ***** adding new node needs to know atleats one more node (seed)
+
+-------------- Replication
+  Primary
+    All Writes happen here and than replicated
+    decided primary based on the load of the machine/node
+    **** default replication in Hadoop is 3
+  Secoendaries
+
+-------------- Docker
+
+docker-machine
+docker-machine restart default
+docker-machine ssh default
+docker-machine stop default
+
+  boot to docker window
+  create/destroy virtualbox
+
+
+  docker run --name cass_one -d cassandra:2.1.11 (setsup cassandra) (-d daemon)
+  docker run --name cass_2 -d cassandra:2.2.4
+    images
+      cassandra:2.1.11 is the image
+      it tries find cassandra locally otherwise goes to dockerhub
+    containers
+      cass_one is the container
+
+  docker ps
+  docker ps -a
+  docker images
+
+  docker start cass_one
+  docker restart cass_one
+  docker stop cass_one
+  docker rm cass_one (removes)
+  docker rm -f cass_4 (forcefully removes)
+
+  ****** still in the vm but not yet connected to the container
+  docker exec -i -t cass_one bash (-i interactive , -t terminal, bash command to execute)
+    inside the vurtalbox, inside a container
+
+  nodetool info
+  cqlsh
+    create keyspace test1 with replication={'class':'SimpleStrategy','replication_factor':2}
+    describe test1
+    cd /var/lib/cassandra/data/
+    help; //cqlsh help
+    describe keyspaces;
+    use test1 (goes inside that keyspace)
+      create table employees (name text primary key, id text);
+    now we should see test1 folder under /var/lib/cassandra/data/ ... because now there is a table when there was nothing it was in the system tables
+
+    describe tables;
+
+    nodetool describering test1 //tells tokens and where data is stored
+      # of tokens tells how many shards will be there
+      how many shards a machine can handle and that is handled by tokens
+
+    cqlsh:test1> insert into employees (name,id) values('Buland','Buland1');
+    cqlsh:test1> select * from employees;
+
+    you still not see anything in the backup folder (/var/lib/cassandra/data/test1/employees-f1c37310a2b011e5b7412f92b65bfc29#)
+      either flush happen (nodetool flush)
+      or configuration limit reaches
+
+    nodetool flush
+
+    nodetool getendpoints test1 employees bob
+      tells where this primary key of a table exists in the shard
+      based on replication factor, should be eactly similar as that proves that replication working fine
+
+  cassandra.yaml --- cassandra configuration file
+    # of tokens: 256 (default)
+
+  docker inspect --format='{{ .NetworkSettings.IPAddress }}' cass_one
+    tells the ip of your node
+
+  docker run --name cass_3 -d -e CASSANDRA_SEEDS="172.17.0.2" cassandra:2.2.4
+
+  nodetool status
+
+  nodetool ring
+
+  docker ps
+
+  nodetool status
+
+  storage mechanism (SST)
+    reading the contents of teh cassandra files
+    ************ SS tabkes to JSON - https://docs.datastax.com/en/cassandra/1.2/cassandra/tools/toolsSStable2json_t.html
+
+  alter table employees add todo map<text, text>;
+
+  *********** REST Cassandra (Thrift) - https://thrift.apache.org/
+
+
+-------------- Processing Frameworks
+Spark
+Flim
+
+-------------- Cassandra Cost
+Idemification
+Paid Support
